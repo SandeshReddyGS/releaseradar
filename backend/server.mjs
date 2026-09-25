@@ -3,6 +3,7 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import pool from './db.mjs';
 
 // Recreate __dirname for ES Modules
 const __filename = fileURLToPath(import.meta.url);
@@ -15,13 +16,18 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// API Health Check Route
-app.get('/api/status', (req, res) => {
-    res.json({ 
-        status: 'success', 
-        environment: process.env.APP_ENV || 'local',
-        version: '1.0.0'
-    });
+// Database Health Check Route
+app.get('/api/db-check', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT NOW()');
+        res.json({ 
+            status: 'Database connected successfully', 
+            time: result.rows[0].now 
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Database connection failed' });
+    }
 });
 
 // Serve React static files (used when deployed)
