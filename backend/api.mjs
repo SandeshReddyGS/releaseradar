@@ -8,10 +8,25 @@ const router = express.Router();
 // Enforce valid JWT on all routes in this router
 router.use(authenticateToken);
 
-// 1. Get all projects (Accessible to any authenticated user)
+// 1. Get projects based on user role
 router.get('/projects', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM projects ORDER BY id DESC');
+    let result;
+    
+    // Check the role stored inside the user's JWT
+    if (req.user.role === 'Admin') {
+      // Admins get unrestricted access to all projects
+      result = await pool.query('SELECT * FROM projects ORDER BY id ASC');
+    } else if (req.user.role === 'MobileTeamLead') {
+      // Mobile Leads only get projects assigned to the Mobile team
+      result = await pool.query(
+        "SELECT * FROM projects WHERE team = 'Mobile' ORDER BY id ASC"
+      );
+    } else {
+      // Fallback for any other roles
+      result = { rows: [] }; 
+    }
+
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: error.message });
