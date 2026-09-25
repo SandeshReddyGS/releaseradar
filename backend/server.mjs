@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import pool from './db.mjs';
 import authRouter, { authenticateToken, requireRole } from './auth.mjs';
+import apiRouter from './api.mjs';
 
 dotenv.config();
 
@@ -19,6 +20,9 @@ app.use(express.json());
 
 // Public Auth routes
 app.use('/api/auth', authRouter);
+
+// Protected Business routes
+app.use('/api', apiRouter);
 
 // Existing DB check route
 app.get('/api/db-check', async (req, res) => {
