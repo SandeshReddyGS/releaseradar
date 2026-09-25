@@ -42,7 +42,7 @@ app.get('/api/admin-only', authenticateToken, requireRole(['Admin']), (req, res)
 // Serve frontend static assets in production
 if (process.env.APP_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../frontend/dist')));
-  app.get('*', (req, res) => {
+  app.get(/(.*)/, (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
   });
 }
