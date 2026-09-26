@@ -79,7 +79,7 @@ export default function App() {
   return (
     <div style={{ maxWidth: '800px', margin: '50px auto', fontFamily: 'sans-serif' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>ReleaseRadar Dashboard</h2>
+        <h2>ReleaseRadar  live Dashboard</h2>
         <button onClick={handleLogout}>Logout</button>
       </div>
       
