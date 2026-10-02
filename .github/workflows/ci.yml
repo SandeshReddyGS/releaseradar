@@ -53,7 +53,12 @@ jobs:
           DATABASE_URL: postgres://testuser:testpassword@localhost:5432/testdb
           JWT_SECRET: ci_test_secret
         run: |
-          npm run start & 
+          node backend/server.mjs &
+          cd frontend
+          npm install
+          npm run dev &
+          cd ..
+          npx wait-on http://localhost:5173 || sleep 5
           npx playwright test
 
       - name: Upload Playwright Traces
