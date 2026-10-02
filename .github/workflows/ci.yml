@@ -35,6 +35,11 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
+      - name: Install Backend Dependencies
+        run: |
+          cd backend
+          npm install
+
       - name: Seed Test Database
         env:
           DATABASE_URL: postgres://testuser:testpassword@localhost:5432/testdb
