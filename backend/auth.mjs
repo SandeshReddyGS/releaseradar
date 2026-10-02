@@ -77,38 +77,6 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Edit an existing project
-router.put('/projects/:id', requireRole(['Admin']), async (req, res) => {
-  const { id } = req.params;
-  const { name, team } = req.body;
-  try {
-    const result = await pool.query(
-      'UPDATE projects SET name = $1, team = $2 WHERE id = $3 RETURNING *',
-      [name, team, id]
-    );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Project not found' });
-    res.json(result.rows[0]);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Edit an existing deployment version
-router.put('/deployments/:id', requireRole(['Admin', 'MobileTeamLead']), async (req, res) => {
-  const { id } = req.params;
-  const { environment, status, git_commit } = req.body;
-  try {
-    const result = await pool.query(
-      'UPDATE deployments SET environment = $1, status = $2, git_commit = $3 WHERE id = $4 RETURNING *',
-      [environment, status, git_commit, id]
-    );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Deployment not found' });
-    res.json(result.rows[0]);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
 // 2. Authentication Middleware (verifies JWT)
 export const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
