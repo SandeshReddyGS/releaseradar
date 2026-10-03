@@ -58,7 +58,7 @@ export default function App() {
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <input 
             type="email" 
-            placeholder="Emailm(e.g., admin@company.com)" 
+            placeholder="Email (e.g., admin@company.com)" 
             value={email} 
             onChange={(e) => setEmail(e.target.value)} 
             required 
