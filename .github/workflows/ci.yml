@@ -3,21 +3,68 @@ name: ReleaseRadar CI Pipeline
 on:
   push:
     branches: [ "main", "develop" ]
-  pull_request:
-    branches: [ "main", "develop" ]
 
 jobs:
   build-and-verify:
     runs-on: ubuntu-latest
     
+    services:
+      db:
+        image: postgres:15
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-        
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          
-      - name: Verify Docker Build
-        run: docker build -t releaseradar:test .
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Install Backend Dependencies
+        run: |
+          cd backend
+          npm install
+
+      - name: Seed Test Database
+        env:
+          DATABASE_URL: postgres://testuser:testpassword@localhost:5432/testdb
+        run: node backend/seed.mjs
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+
+      - name: Run E2E Tests
+        env:
+          DATABASE_URL: postgres://testuser:testpassword@localhost:5432/testdb
+          JWT_SECRET: ci_test_secret
+        run: |
+          node backend/server.mjs &
+          cd frontend
+          npm install
+          npm run dev &
+          cd ..
+          npx wait-on http://localhost:5173 || sleep 5
+          npx playwright test
+
+      - name: Upload Playwright Traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: playwright-report/
+          retention-days: 7

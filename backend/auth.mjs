@@ -51,6 +51,32 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// 1b. Register Endpoint (New)
+router.post('/register', async (req, res) => {
+  const { email, password, role } = req.body;
+  
+  if (!email || !password || !role) {
+    return res.status(400).json({ error: 'Email, password, and role are required' });
+  }
+
+  try {
+    const userCheck = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (userCheck.rows.length > 0) {
+      return res.status(409).json({ error: 'User already exists' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const newUser = await pool.query(
+      'INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) RETURNING id, email, role',
+      [email, passwordHash, role]
+    );
+
+    res.status(201).json({ message: 'User registered', user: newUser.rows[0] });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 2. Authentication Middleware (verifies JWT)
 export const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];

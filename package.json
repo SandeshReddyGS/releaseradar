@@ -1,0 +1,23 @@
+{
+  "name": "releaseradar",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SandeshReddyGS/releaseradar.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/SandeshReddyGS/releaseradar/issues"
+  },
+  "homepage": "https://github.com/SandeshReddyGS/releaseradar#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.6.4"
+  }
+}
