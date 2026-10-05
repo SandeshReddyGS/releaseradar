@@ -1,197 +1,10 @@
-import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, Link } from 'react-router-dom';
+import { useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import Login from './components/Login';
 import Register from './components/Register';
+import Dashboard from './components/Dashboard';
+import './App.css'; // Import your new global styles
 
-// --- DASHBOARD COMPONENT ---
-function Dashboard({ token, setToken, role, setRole }) {
-  const [projects, setProjects] = useState([]);
-  const [error, setError] = useState('');
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!token) return;
-    fetch('/api/projects', { 
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data.error) setError(data.error);
-        else setProjects(data);
-      })
-      .catch(err => setError(err.message));
-  }, [token]);
-
-  const handleLogout = () => {
-    setToken('');
-    setRole('');
-    localStorage.removeItem('token');
-    localStorage.removeItem('role');
-    navigate('/login');
-  };
-
-  const handleDelete = async (id) => {
-    await fetch(`/api/projects/${id}`, { 
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    setProjects(projects.filter(p => p.id !== id));
-  };
-
-  const handleAddProject = async () => {
-    const name = prompt("Enter project name:");
-    const team = prompt("Enter team name:");
-    const last_deploy_date = prompt("Enter last deploy date (YYYY-MM-DD):");
-    const deploy_message = prompt("Enter deployment message:");
-    
-    if (name && team) {
-      const res = await fetch('/api/projects', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}` 
-        },
-        body: JSON.stringify({ name, team, last_deploy_date, deploy_message })
-      });
-      
-      if (res.ok) {
-        const newProject = await res.json();
-        setProjects([...projects, newProject]);
-      }
-    }
-  };
-
-  const handleEdit = async (project) => {
-    const name = prompt("Edit project name:", project.name);
-    const team = prompt("Edit team name:", project.team);
-    const last_deploy_date = prompt("Edit last deploy date (YYYY-MM-DD):", project.last_deploy_date || "");
-    const deploy_message = prompt("Edit deployment message:", project.deploy_message || "");
-
-    if (name && team) {
-      const res = await fetch(`/api/projects/${project.id}`, {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}` 
-        },
-        body: JSON.stringify({ name, team, last_deploy_date, deploy_message })
-      });
-      
-      if (res.ok) {
-        const updatedProject = await res.json();
-        setProjects(projects.map(p => p.id === project.id ? updatedProject : p));
-      }
-    }
-  };
-
-  return (
-    <div style={{ maxWidth: '1000px', margin: '50px auto', fontFamily: 'sans-serif' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>ReleaseRadar live Dashboard</h2>
-        <div>
-          {role === 'Admin' && (
-            <button onClick={handleAddProject} style={{ marginRight: '10px' }}>New Project</button>
-          )}
-          <button onClick={handleLogout}>Logout</button>
-        </div>
-      </div>
-      
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      
-      <h3>Active Projects</h3>
-      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-        <thead>
-          <tr style={{ borderBottom: '2px solid #ccc' }}>
-            <th style={{ padding: '10px' }}>ID</th>
-            <th>Project Name</th>
-            <th>Team</th>
-            <th>Last Deploy Date</th>
-            <th>Deploy Message</th>
-            {role === 'Admin' && <th>Actions</th>}
-          </tr>
-        </thead>
-        <tbody>
-          {projects.map(proj => (
-            <tr key={proj.id} style={{ borderBottom: '1px solid #eee' }}>
-              <td style={{ padding: '10px' }}>{proj.id}</td>
-              <td>{proj.name}</td>
-              <td>{proj.team}</td>
-              <td>{proj.last_deploy_date ? new Date(proj.last_deploy_date).toLocaleDateString() : 'N/A'}</td>
-              <td>{proj.deploy_message || 'N/A'}</td>
-              
-              {role === 'Admin' && (
-                <td style={{ padding: '10px' }}>
-                  <button onClick={() => handleEdit(proj)} style={{ marginRight: '5px' }}>Edit</button>
-                  <button onClick={() => handleDelete(proj.id)}>Delete</button>
-                </td>
-              )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-// --- LOGIN COMPONENT ---
-function Login({ setToken, setRole }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const navigate = useNavigate();
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError('');
-    
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-      const data = await res.json();
-      
-      if (res.ok) {
-        setToken(data.token);
-        setRole(data.role);
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('role', data.role);
-        navigate('/dashboard');
-      } else {
-        setError(data.error || 'Login failed');
-      }
-    } catch (err) {
-      setError('Network error connecting to server');
-    }
-  };
-
-  return (
-    <div style={{ maxWidth: '400px', margin: '50px auto', fontFamily: 'sans-serif' }}>
-      <h2>ReleaseRadar Login</h2>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <input 
-          type="email" 
-          placeholder="Email" 
-          value={email} 
-          onChange={(e) => setEmail(e.target.value)} 
-          required 
-        />
-        <input 
-          type="password" 
-          placeholder="Password" 
-          value={password} 
-          onChange={(e) => setPassword(e.target.value)} 
-          required 
-        />
-        <button type="submit">Sign In</button>
-      </form>
-      <p style={{ marginTop: '15px' }}>Need an account? <Link to="/register">Register here</Link></p>
-    </div>
-  );
-}
-
-// --- MAIN APP COMPONENT (ROUTER SETUP) ---
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [role, setRole] = useState(localStorage.getItem('role') || '');
@@ -199,12 +12,18 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Default route redirects to dashboard if logged in, otherwise login */}
         <Route path="/" element={<Navigate to={token ? "/dashboard" : "/login"} />} />
-        <Route path="/login" element={<Login setToken={setToken} setRole={setRole} />} />
-        <Route path="/register" element={<Register />} />
         
-        {/* Protect the dashboard route */}
+        <Route 
+          path="/login" 
+          element={<Login setToken={setToken} setRole={setRole} />} 
+        />
+        
+        <Route 
+          path="/register" 
+          element={<Register />} 
+        />
+        
         <Route 
           path="/dashboard" 
           element={token ? <Dashboard token={token} setToken={setToken} role={role} setRole={setRole} /> : <Navigate to="/login" />} 
