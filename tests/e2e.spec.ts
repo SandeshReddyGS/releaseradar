@@ -20,5 +20,5 @@ test('User can log in successfully', async ({ page }) => {
 
   // 2. Remove the strict waitForURL that causes infinite timeouts. 
   // Instead, wait directly for the DOM to render the word "Projects"
-  await expect(page.locator('body')).toContainText('Projects', { timeout: 15000 });
+  await expect(page.locator('body')).toContainText('ReleaseRadar Live Dashboard', { timeout: 15000 });
 });
