@@ -17,7 +17,9 @@ async function seedDatabase() {
             CREATE TABLE projects (
                 id SERIAL PRIMARY KEY,
                 name VARCHAR(255) NOT NULL,
-                team VARCHAR(100) NOT NULL
+                team VARCHAR(100) NOT NULL,
+                last_deploy_date DATE,
+                deploy_message VARCHAR(255)
             );
 
             CREATE TABLE deployments (
@@ -43,10 +45,10 @@ async function seedDatabase() {
 
         console.log('4. Inserting Mock Projects...');
         await pool.query(`
-            INSERT INTO projects (name, team) VALUES 
-            ('Global Billing Gateway', 'Finance'),
-            ('iOS App Redesign', 'Mobile'),
-            ('Android Push Service', 'Mobile')
+            INSERT INTO projects (name, team, last_deploy_date, deploy_message) VALUES 
+            ('Global Billing Gateway', 'Finance', '2026-10-01', 'Fix: Payment gateway timeout'),
+            ('iOS App Redesign', 'Mobile', '2026-10-04', 'New Enhancement: Dark mode UI'),
+            ('Android Push Service', 'Mobile', '2026-10-05', 'Fix: Push notification token refresh')
         `);
 
         console.log('✅ Database successfully seeded!');

@@ -40,6 +40,8 @@ function Dashboard({ token, setToken, role, setRole }) {
   const handleAddProject = async () => {
     const name = prompt("Enter project name:");
     const team = prompt("Enter team name:");
+    const last_deploy_date = prompt("Enter last deploy date (YYYY-MM-DD):");
+    const deploy_message = prompt("Enter deployment message:");
     
     if (name && team) {
       const res = await fetch('/api/projects', {
@@ -48,7 +50,7 @@ function Dashboard({ token, setToken, role, setRole }) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}` 
         },
-        body: JSON.stringify({ name, team })
+        body: JSON.stringify({ name, team, last_deploy_date, deploy_message })
       });
       
       if (res.ok) {
@@ -58,8 +60,31 @@ function Dashboard({ token, setToken, role, setRole }) {
     }
   };
 
+  const handleEdit = async (project) => {
+    const name = prompt("Edit project name:", project.name);
+    const team = prompt("Edit team name:", project.team);
+    const last_deploy_date = prompt("Edit last deploy date (YYYY-MM-DD):", project.last_deploy_date || "");
+    const deploy_message = prompt("Edit deployment message:", project.deploy_message || "");
+
+    if (name && team) {
+      const res = await fetch(`/api/projects/${project.id}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({ name, team, last_deploy_date, deploy_message })
+      });
+      
+      if (res.ok) {
+        const updatedProject = await res.json();
+        setProjects(projects.map(p => p.id === project.id ? updatedProject : p));
+      }
+    }
+  };
+
   return (
-    <div style={{ maxWidth: '800px', margin: '50px auto', fontFamily: 'sans-serif' }}>
+    <div style={{ maxWidth: '1000px', margin: '50px auto', fontFamily: 'sans-serif' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2>ReleaseRadar live Dashboard</h2>
         <div>
@@ -79,6 +104,8 @@ function Dashboard({ token, setToken, role, setRole }) {
             <th style={{ padding: '10px' }}>ID</th>
             <th>Project Name</th>
             <th>Team</th>
+            <th>Last Deploy Date</th>
+            <th>Deploy Message</th>
             {role === 'Admin' && <th>Actions</th>}
           </tr>
         </thead>
@@ -88,9 +115,12 @@ function Dashboard({ token, setToken, role, setRole }) {
               <td style={{ padding: '10px' }}>{proj.id}</td>
               <td>{proj.name}</td>
               <td>{proj.team}</td>
+              <td>{proj.last_deploy_date ? new Date(proj.last_deploy_date).toLocaleDateString() : 'N/A'}</td>
+              <td>{proj.deploy_message || 'N/A'}</td>
               
               {role === 'Admin' && (
-                <td>
+                <td style={{ padding: '10px' }}>
+                  <button onClick={() => handleEdit(proj)} style={{ marginRight: '5px' }}>Edit</button>
                   <button onClick={() => handleDelete(proj.id)}>Delete</button>
                 </td>
               )}
