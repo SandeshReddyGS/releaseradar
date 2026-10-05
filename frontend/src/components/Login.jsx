@@ -34,7 +34,7 @@ export default function Login({ setToken, setRole }) {
   };
 
   return (
-    <div className="auth-wrapper"]
+    <div className="auth-wrapper">
       <div className="auth-card">
         <h2>ReleaseRadar Login</h2>
         
