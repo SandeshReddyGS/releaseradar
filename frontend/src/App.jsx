@@ -1,60 +1,32 @@
 import { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, Link } from 'react-router-dom';
 import Register from './components/Register';
 
-export default function App() {
-  const [token, setToken] = useState(localStorage.getItem('token') || '');
-  const [role, setRole] = useState(localStorage.getItem('role') || '');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+// --- DASHBOARD COMPONENT ---
+function Dashboard({ token, setToken, role, setRole }) {
   const [projects, setProjects] = useState([]);
   const [error, setError] = useState('');
-  const [showRegister, setShowRegister] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    if (token) {
-      fetch('/api/projects', {
-        headers: { Authorization: `Bearer ${token}` }
+    if (!token) return;
+    fetch('/api/projects', { 
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) setError(data.error);
+        else setProjects(data);
       })
-        .then(res => res.json())
-        .then(data => {
-          if (data.error) setError(data.error);
-          else setProjects(data);
-        })
-        .catch(err => setError(err.message));
-    }
+      .catch(err => setError(err.message));
   }, [token]);
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError('');
-    
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-      const data = await res.json();
-      
-      if (res.ok) {
-        setToken(data.token);
-        setRole(data.role); // Save the role to state
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('role', data.role); // Save the role to storage
-      } else {
-        setError(data.error || 'Login failed');
-      }
-    } catch (err) {
-      setError('Network error connecting to server');
-    }
-  };
 
   const handleLogout = () => {
     setToken('');
     setRole('');
     localStorage.removeItem('token');
     localStorage.removeItem('role');
-    setProjects([]);
+    navigate('/login');
   };
 
   const handleDelete = async (id) => {
@@ -85,42 +57,6 @@ export default function App() {
       }
     }
   };
-
-  if (!token) {
-    if (showRegister) {
-      return (
-        <div style={{ maxWidth: '400px', margin: '50px auto', fontFamily: 'sans-serif' }}>
-          <Register />
-          <button onClick={() => setShowRegister(false)} style={{ marginTop: '10px' }}>Back to Login</button>
-        </div>
-      );
-    }
-
-    return (
-      <div style={{ maxWidth: '400px', margin: '50px auto', fontFamily: 'sans-serif' }}>
-        <h2>ReleaseRadar Login</h2>
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <input 
-            type="email" 
-            placeholder="Email (e.g. admin@company.com)" 
-            value={email} 
-            onChange={(e) => setEmail(e.target.value)} 
-            required 
-          />
-          <input 
-            type="password" 
-            placeholder="Password (e.g., admin123)" 
-            value={password} 
-            onChange={(e) => setPassword(e.target.value)} 
-            required 
-          />
-          <button type="submit">Sign In</button>
-        </form>
-        <button onClick={() => setShowRegister(true)} style={{ marginTop: '15px' }}>Need an account? Register</button>
-      </div>
-    );
-  }
 
   return (
     <div style={{ maxWidth: '800px', margin: '50px auto', fontFamily: 'sans-serif' }}>
@@ -163,5 +99,87 @@ export default function App() {
         </tbody>
       </table>
     </div>
+  );
+}
+
+// --- LOGIN COMPONENT ---
+function Login({ setToken, setRole }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError('');
+    
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      
+      if (res.ok) {
+        setToken(data.token);
+        setRole(data.role);
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('role', data.role);
+        navigate('/dashboard');
+      } else {
+        setError(data.error || 'Login failed');
+      }
+    } catch (err) {
+      setError('Network error connecting to server');
+    }
+  };
+
+  return (
+    <div style={{ maxWidth: '400px', margin: '50px auto', fontFamily: 'sans-serif' }}>
+      <h2>ReleaseRadar Login</h2>
+      {error && <p style={{ color: 'red' }}>{error}</p>}
+      <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <input 
+          type="email" 
+          placeholder="Email" 
+          value={email} 
+          onChange={(e) => setEmail(e.target.value)} 
+          required 
+        />
+        <input 
+          type="password" 
+          placeholder="Password" 
+          value={password} 
+          onChange={(e) => setPassword(e.target.value)} 
+          required 
+        />
+        <button type="submit">Sign In</button>
+      </form>
+      <p style={{ marginTop: '15px' }}>Need an account? <Link to="/register">Register here</Link></p>
+    </div>
+  );
+}
+
+// --- MAIN APP COMPONENT (ROUTER SETUP) ---
+export default function App() {
+  const [token, setToken] = useState(localStorage.getItem('token') || '');
+  const [role, setRole] = useState(localStorage.getItem('role') || '');
+
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Default route redirects to dashboard if logged in, otherwise login */}
+        <Route path="/" element={<Navigate to={token ? "/dashboard" : "/login"} />} />
+        <Route path="/login" element={<Login setToken={setToken} setRole={setRole} />} />
+        <Route path="/register" element={<Register />} />
+        
+        {/* Protect the dashboard route */}
+        <Route 
+          path="/dashboard" 
+          element={token ? <Dashboard token={token} setToken={setToken} role={role} setRole={setRole} /> : <Navigate to="/login" />} 
+        />
+      </Routes>
+    </BrowserRouter>
   );
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 export default function Register() {
   const [email, setEmail] = useState('');
@@ -23,17 +23,30 @@ export default function Register() {
   };
 
   return (
-    <div className="register-container">
-      <h2>Register</h2>
-      <form onSubmit={handleRegister}>
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" required />
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" required />
-        <select value={role} onChange={(e) => setRole(e.target.value)}>
+    <div style={{ maxWidth: '400px', margin: '50px auto', fontFamily: 'sans-serif' }}>
+      <h2>Register for ReleaseRadar</h2>
+      <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <input 
+          type="email" 
+          value={email} 
+          onChange={(e) => setEmail(e.target.value)} 
+          placeholder="Email" 
+          required 
+        />
+        <input 
+          type="password" 
+          value={password} 
+          onChange={(e) => setPassword(e.target.value)} 
+          placeholder="Password" 
+          required 
+        />
+        <select value={role} onChange={(e) => setRole(e.target.value)} style={{ padding: '5px' }}>
           <option value="Admin">Admin</option>
           <option value="Mobile Team Lead">Mobile Team Lead</option>
         </select>
         <button type="submit">Sign Up</button>
       </form>
+      <p>Already have an account? <Link to="/login">Log in here</Link></p>
     </div>
   );
 }
