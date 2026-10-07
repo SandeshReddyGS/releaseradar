@@ -84,13 +84,27 @@ router.post('/deployments', async (req, res) => {
 // Edit an existing project
 router.put('/projects/:id', requireRole(['Admin']), async (req, res) => {
   const { id } = req.params;
-  const { name, team } = req.body;
+  
+  // 1. Extract ALL fields from the incoming JSON body
+  const { name, team, last_deploy_date, deploy_message } = req.body;
+  
   try {
+    // 2. Add the new fields to the SQL UPDATE statement
     const result = await pool.query(
-      'UPDATE projects SET name = $1, team = $2 WHERE id = $3 RETURNING *',
-      [name, team, id]
+      `UPDATE projects 
+       SET name = $1, 
+           team = $2, 
+           last_deploy_date = $3, 
+           deploy_message = $4 
+       WHERE id = $5 
+       RETURNING *`,
+      [name, team, last_deploy_date, deploy_message, id]
     );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Project not found' });
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+    
     res.json(result.rows[0]);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -108,6 +122,32 @@ router.put('/deployments/:id', requireRole(['Admin', 'MobileTeamLead']), async (
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Deployment not found' });
     res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete a project (Admin Only)
+router.delete('/projects/:id', requireRole(['Admin']), async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Run the SQL DELETE command and return the deleted row to confirm
+    const result = await pool.query(
+      'DELETE FROM projects WHERE id = $1 RETURNING *',
+      [id]
+    );
+
+    // If no rows were returned, the ID didn't exist in the database
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Send a success message back to the frontend
+    res.json({ 
+      message: 'Project deleted successfully', 
+      deletedProject: result.rows[0] 
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
