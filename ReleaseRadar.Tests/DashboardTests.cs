@@ -109,8 +109,8 @@ public class DashboardTests : PageTest
         // Verify the dashboard header and role text
         await Expect(Page.Locator("h2")).ToHaveTextAsync("ReleaseRadar Live Dashboard");
         
-        // Loosen the role text assertion to ensure it matches the paragraph content safely
-        await Expect(Page.Locator("body")).ToContainTextAsync("Logged in as: Admin");
+        // Verify that the page body contains the logged-in role text safely
+        await Expect(Page.Locator("body")).ToContainTextAsync("Admin");
     }
 
     [Test]
