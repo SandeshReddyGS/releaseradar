@@ -57,7 +57,7 @@ jobs:
       # Step 5: Fill the test database with dummy data (using localhost since runner talks to service container)
       - name: Seed Test Database
         env:
-          DATABASE_URL: postgres://testuser:testpassword@localhost:5432/testdb
+          DATABASE_URL: postgres://testuser:testpassword@172.17.0.1:5432/testdb
         run: node backend/seed.mjs
 
       # Step 6: Compile the C# test suite to catch syntax errors early
@@ -75,13 +75,13 @@ jobs:
       # Step 9: Start the Docker container in the background (-d flag)
       # Uses host.docker.internal so the containerized backend connects to the CI's Postgres database,
       # and sets APP_ENV="production" so Express serves the compiled React frontend.
+      # Step 9: Run the container using the exact same bridge IP
       - name: Run Application Container
         env:
-          DATABASE_URL: postgres://testuser:testpassword@host.docker.internal:5432/testdb
+          DATABASE_URL: postgres://testuser:testpassword@172.17.0.1:5432/testdb
           JWT_SECRET: ci_test_secret
         run: |
           docker run -d \
-            --add-host=host.docker.internal:host-gateway \
             -p 5173:3000 \
             -p 5000:5000 \
             -e DATABASE_URL="${{ env.DATABASE_URL }}" \
@@ -89,7 +89,6 @@ jobs:
             -e APP_ENV="production" \
             --name live-app releaseradar-app
 
-      # Step 10: Verify the container is running, then execute C# tests
       # Step 10: Verify the container is running, debug backend health, then execute C# tests
       - name: Run E2E Tests
         run: |
