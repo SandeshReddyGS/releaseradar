@@ -12,3 +12,7 @@ frontend/dist/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# .NET Build Output
+[Bb]in/
+[Oo]bj/
