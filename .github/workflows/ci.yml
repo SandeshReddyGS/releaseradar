@@ -1,16 +1,19 @@
 name: ReleaseRadar CI Pipeline
 
+# Trigger the pipeline automatically whenever code is pushed to these branches
 on:
   push:
     branches: [ "main", "develop" ]
 
 jobs:
   build-and-verify:
+    # Run the pipeline on a fresh Ubuntu Linux virtual machine
     runs-on: ubuntu-latest
     
-    # 1. Setup the ephemeral PostgreSQL database for tests
+    # Background services needed before steps run
     services:
       db:
+        # Spin up an ephemeral PostgreSQL database container for testing
         image: postgres:15
         env:
           POSTGRES_USER: testuser
@@ -18,6 +21,7 @@ jobs:
           POSTGRES_DB: testdb
         ports:
           - 5432:5432
+        # Ensure the database is fully booted before proceeding
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -25,23 +29,23 @@ jobs:
           --health-retries 5
 
     steps:
-      # Step 1: Download your source code onto the GitHub runner
+      # Step 1: Download your repository's code onto the runner
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Step 2: Install Node.js for your backend and frontend servers
+      # Step 2: Install Node.js for backend scripts and frontend tools
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # Step 3: Setup .NET 10 for your C# Playwright tests
+      # Step 3: Install the .NET 10 SDK required for your C# Playwright tests
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x' 
 
-      # Step 4: Install ALL dependencies (Root, Backend, and Frontend) to prevent Vite errors
+      # Step 4: Install all Node modules (Fixes the "Vite not found" crash)
       - name: Install Frontend/Backend Dependencies
         run: |
           npm ci
@@ -50,25 +54,26 @@ jobs:
           cd ../frontend
           npm install
 
-      # Step 5: Seed the temporary test database with mock projects
+      # Step 5: Fill the test database with dummy data for Playwright to read/edit
       - name: Seed Test Database
         env:
           DATABASE_URL: postgres://testuser:testpassword@localhost:5432/testdb
         run: node backend/seed.mjs
 
-      # Step 6: Compile the C# test project
+      # Step 6: Compile the C# test suite to catch syntax errors early
       - name: Build C# Tests
         run: dotnet build ReleaseRadar.Tests/ReleaseRadar.Tests.csproj
 
-      # Step 7: Install Playwright browsers based on the compiled .NET 10 project
+      # Step 7: Download Playwright's browsers (Chrome, Firefox) for automated clicking
       - name: Install Playwright Browsers
         run: pwsh ReleaseRadar.Tests/bin/Debug/net10.0/playwright.ps1 install --with-deps
 
-      # Step 8: Build your application's Docker container using your project's Dockerfile
+      # Step 8: Build the Docker image from your monorepo's Dockerfile
       - name: Build Docker Image
         run: docker build -t releaseradar-app .
 
-      # Step 9: Start your Docker container in the background (-d flag)
+      # Step 9: Start the Docker container in the background (-d flag)
+      # Port 5173 must be mapped, and Vite must be configured with --host in package.json
       - name: Run Application Container
         env:
           DATABASE_URL: postgres://testuser:testpassword@localhost:5432/testdb
@@ -76,16 +81,21 @@ jobs:
         run: |
           docker run -d -p 5173:5173 -p 5000:5000 -e DATABASE_URL="${{ env.DATABASE_URL }}" -e JWT_SECRET="${{ env.JWT_SECRET }}" --name live-app releaseradar-app
 
-      # Step 10: Wait for the container to boot, then run the C# tests
+      # Step 10: Verify the container is running, then execute C# tests
       - name: Run E2E Tests
         run: |
-          # Wait for the frontend to be ready with a 60-second timeout to prevent hanging
+          # Wait up to 60 seconds for Vite to respond on port 5173 to prevent infinite pipeline freezing
           npx wait-on -t 60000 http://localhost:5173 || sleep 5
           
-          # Execute the C# NUnit tests against the running Docker container
+          # Fire the automated Playwright tests against the live Docker container
           dotnet test ReleaseRadar.Tests/ReleaseRadar.Tests.csproj
 
-      # Step 11: Save the generated trace.zip files as downloadable artifacts
+      # Step 11: If Step 10 fails, print the backend/frontend terminal output to diagnose the crash
+      - name: Print Docker Logs on Failure
+        if: failure()
+        run: docker logs live-app
+
+      # Step 12: Collect the zip files capturing the browser sessions (always runs, even if tests fail)
       - name: Upload Playwright Traces
         if: always()
         uses: actions/upload-artifact@v4
