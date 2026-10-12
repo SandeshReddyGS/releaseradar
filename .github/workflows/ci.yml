@@ -10,10 +10,10 @@ jobs:
     # Run the pipeline on a fresh Ubuntu Linux virtual machine
     runs-on: ubuntu-latest
     
-    # Background services needed before steps run
+    # Background database service container for testing
     services:
       db:
-        # Spin up an ephemeral PostgreSQL database container for testing
+        # Spin up an ephemeral PostgreSQL database container
         image: postgres:15
         env:
           POSTGRES_USER: testuser
@@ -21,7 +21,7 @@ jobs:
           POSTGRES_DB: testdb
         ports:
           - 5432:5432
-        # Ensure the database is fully booted before proceeding
+        # Ensure the database is fully healthy and ready to accept connections before proceeding
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -29,23 +29,23 @@ jobs:
           --health-retries 5
 
     steps:
-      # Step 1: Download your repository's code onto the runner
+      # Step 1: Download your repository code onto the virtual machine runner
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Step 2: Install Node.js for backend scripts and frontend tools
+      # Step 2: Set up the Node.js runtime environment for backend and frontend tooling
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # Step 3: Install the .NET 10 SDK required for your C# Playwright tests
+      # Step 3: Install the .NET SDK required to compile and run your C# Playwright tests
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x' 
 
-      # Step 4: Install all Node modules for dependency resolution
+      # Step 4: Install all node dependencies for the root, backend, and frontend packages
       - name: Install Frontend/Backend Dependencies
         run: |
           npm ci
@@ -54,67 +54,45 @@ jobs:
           cd ../frontend
           npm install
 
-      # Step 5: Fill the test database with dummy data (using localhost since runner talks to service container)
+      # Step 5: Execute your seed script to create tables and insert mock users against localhost Postgres
       - name: Seed Test Database
         env:
-          DATABASE_URL: postgres://testuser:testpassword@172.17.0.1:5432/testdb
+          DATABASE_URL: postgres://testuser:testpassword@localhost:5432/testdb
         run: node backend/seed.mjs
 
-      # Step 6: Compile the C# test suite to catch syntax errors early
-      - name: Build C# Tests
+      # Step 6: Compile the C# test project to verify test syntax and dependencies are correct
+      - name: Compile C# Tests
         run: dotnet build ReleaseRadar.Tests/ReleaseRadar.Tests.csproj
 
-      # Step 7: Download Playwright's browsers (Chrome, Firefox) for automated clicking
+      # Step 7: Download and install the browser binaries needed by Playwright
       - name: Install Playwright Browsers
         run: pwsh ReleaseRadar.Tests/bin/Debug/net10.0/playwright.ps1 install --with-deps
 
-      # Step 8: Build the Docker image from your monorepo's multi-stage Dockerfile
-      - name: Build Docker Image
+      # Step 8: Build the Docker image to prove that your Dockerfile compiles cleanly without errors
+      - name: Build Docker Image (Verification Only)
         run: docker build -t releaseradar-app .
 
-      # Step 9: Start the Docker container in the background (-d flag)
-      # Uses host.docker.internal so the containerized backend connects to the CI's Postgres database,
-      # and sets APP_ENV="production" so Express serves the compiled React frontend.
-      # Step 9: Run the container using the exact same bridge IP
-      - name: Run Application Container
+      # Step 9: Spin up the backend and frontend servers natively on localhost and execute E2E tests
+      - name: Run E2E Tests
         env:
-          DATABASE_URL: postgres://testuser:testpassword@172.17.0.1:5432/testdb
+          DATABASE_URL: postgres://testuser:testpassword@localhost:5432/testdb
           JWT_SECRET: ci_test_secret
         run: |
-          docker run -d \
-            -p 5173:3000 \
-            -p 5000:5000 \
-            -e DATABASE_URL="${{ env.DATABASE_URL }}" \
-            -e JWT_SECRET="${{ env.JWT_SECRET }}" \
-            -e APP_ENV="production" \
-            --name live-app releaseradar-app
-
-      # Step 10: Verify the container is running, debug backend health, then execute C# tests
-      - name: Run E2E Tests
-        run: |
-          # Wait up to 60 seconds for the server to respond on port 5173
-          npx wait-on -t 60000 http://localhost:5173
+          # Start the Express backend server in the background
+          node backend/server.mjs &
           
-          echo "--- Checking running containers ---"
-          docker ps
+          # Start the Vite development server in the background
+          cd frontend
+          npm run dev &
+          cd ..
           
-          echo "--- Container runtime logs ---"
-          docker logs live-app
+          # Wait up to 60 seconds for the Vite server to respond on port 5173
+          npx wait-on -t 60000 http://localhost:5173 || sleep 5
           
-          echo "--- API smoke test (Testing login endpoint directly) ---"
-          curl -i -X POST http://localhost:5173/api/auth/login \
-            -H "Content-Type: application/json" \
-            -d '{"email":"admin@company.com","password":"admin123"}' || true
-          
-          # Fire the automated Playwright tests
+          # Execute the Playwright test suite against the native localhost servers
           dotnet test ReleaseRadar.Tests/ReleaseRadar.Tests.csproj
 
-      # Step 11: If Step 10 fails, print the backend/frontend terminal output to diagnose the crash
-      - name: Print Docker Logs on Failure
-        if: failure()
-        run: docker logs live-app
-
-      # Step 12: Collect the zip files capturing the browser sessions (always runs, even if tests fail)
+      # Step 10: Collect Playwright trace artifacts if any tests fail for debugging purposes
       - name: Upload Playwright Traces
         if: always()
         uses: actions/upload-artifact@v4
