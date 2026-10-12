@@ -90,12 +90,24 @@ jobs:
             --name live-app releaseradar-app
 
       # Step 10: Verify the container is running, then execute C# tests
+      # Step 10: Verify the container is running, debug backend health, then execute C# tests
       - name: Run E2E Tests
         run: |
-          # Wait up to 60 seconds for the server to respond on port 5173 to prevent infinite pipeline freezing
-          npx wait-on -t 60000 http://localhost:5173 || sleep 5
+          # Wait up to 60 seconds for the server to respond on port 5173
+          npx wait-on -t 60000 http://localhost:5173
           
-          # Fire the automated Playwright tests against the live Docker container
+          echo "--- Checking running containers ---"
+          docker ps
+          
+          echo "--- Container runtime logs ---"
+          docker logs live-app
+          
+          echo "--- API smoke test (Testing login endpoint directly) ---"
+          curl -i -X POST http://localhost:5173/api/auth/login \
+            -H "Content-Type: application/json" \
+            -d '{"email":"admin@company.com","password":"admin123"}' || true
+          
+          # Fire the automated Playwright tests
           dotnet test ReleaseRadar.Tests/ReleaseRadar.Tests.csproj
 
       # Step 11: If Step 10 fails, print the backend/frontend terminal output to diagnose the crash
